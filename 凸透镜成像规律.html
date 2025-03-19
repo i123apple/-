@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>凸透镜成像规律（按钮持续移动）</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            position: relative;
+            width: 800px;
+            height: 300px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            margin-bottom: 20px; /* 与滑动条的间距 */
+        }
+
+        /* 滑动条容器 */
+        .slider-container {
+            text-align: center;
+            margin-bottom: 20px; /* 与提示区域的间距 */
+        }
+
+        .slider-container label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        /* 按钮容器 */
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .button-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* 提示区域 */
+        .hint {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 20px;
+        }
+
+        /* 光轴 */
+        .optical-axis {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #000;
+        }
+
+        /* 凸透镜 */
+        .lens {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 150px;
+            background-color: #ccc;
+            border-radius: 50%;
+        }
+
+        /* 焦点和 2F 点 */
+        .point {
+            position: absolute;
+            top: 50%;
+            width: 10px;
+            height: 10px;
+            background-color: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .focus-left { left: 37.5%; }
+        .focus-right { left: 62.5%; }
+        .point-2f-left { left: 25%; background-color: blue; }
+        .point-2f-right { left: 75%; background-color: blue; }
+
+        /* 标注文字 */
+        .label {
+            position: absolute;
+            font-size: 12px;
+            color: #000;
+        }
+
+        .label-focus-left { top: 55%; left: 37.5%; }
+        .label-focus-right { top: 55%; left: 62.5%; }
+        .label-2f-left { top: 55%; left: 25%; }
+        .label-2f-right { top: 55%; left: 75%; }
+        .label-lens { top: 30%; left: 50%; }
+
+        /* 物体和像的线段 */
+        .line {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            background-color: green;
+        }
+
+        /* 物体 */
+        .object {
+            top: 50%; /* 下端沿光轴 */
+            height: 50px;
+            transform: translate(-50%, -100%); /* 下端固定在光轴上 */
+        }
+
+        /* 像 */
+        .image {
+            background-color: transparent;
+            top: 50%; /* 下端沿光轴 */
+            transform: translate(-50%, 0%); /* 下端固定在光轴上 */
+        }
+
+        /* 实像（实线） */
+        .image.real {
+            border-left: 2px solid purple;
+        }
+
+        /* 虚像（虚线） */
+        .image.virtual {
+            border-left: 2px dashed purple;
+            top: 50%; /* 虚像沿光轴滑动 */
+            transform: translate(-50%, -100%); /* 上端固定 */
+        }
+
+        /* 箭头样式 */
+        .arrow {
+            position: absolute;
+            left: 50%; /* 水平居中 */
+            transform: translateX(-50%); /* 水平居中 */
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+        }
+
+        /* 物体箭头（始终向上，绿色） */
+        .arrow.object-arrow {
+            border-bottom: 12px solid green;
+            top: 30%; /* 顶端对齐 */
+        }
+
+        /* 实像箭头（向下，紫色） */
+        .arrow.real-arrow {
+            border-top: 12px solid purple;
+            top: 70%; /* 位于像的底端 */
+        }
+
+        /* 虚像箭头（向上，紫色） */
+        .arrow.virtual-arrow {
+            border-bottom: 12px solid purple;
+            top: 0; /* 顶端对齐 */
+        }
+    </style>
+</head>
+<body>
+    <!-- 主容器 -->
+    <div class="container">
+        <!-- 光轴 -->
+        <div class="optical-axis"></div>
+
+        <!-- 凸透镜 -->
+        <div class="lens"></div>
+        <div class="label label-lens">凸透镜</div>
+
+        <!-- 焦点和 2F -->
+        <div class="point focus-left"></div>
+        <div class="label label-focus-left">焦点 F</div>
+        <div class="point focus-right"></div>
+        <div class="label label-focus-right">焦点 F'</div>
+        <div class="point point-2f-left"></div>
+        <div class="label label-2f-left">2F</div>
+        <div class="point point-2f-right"></div>
+        <div class="label label-2f-right">2F'</div>
+
+        <!-- 物体 -->
+        <div class="line object" id="object"></div>
+        <div class="arrow object-arrow" id="object-arrow"></div>
+        <div class="label" id="object-label" style="top: 45%; left: 10%;">物体</div>
+
+        <!-- 像 -->
+        <div class="line image" id="image"></div>
+        <div class="arrow" id="image-arrow"></div>
+        <div class="label" id="image-label" style="top: 55%;">像</div>
+    </div>
+
+    <!-- 滑动条 -->
+    <div class="slider-container">
+        <label for="focal-length">焦距 (f): <span id="focal-length-value">100</span>px</label>
+        <input type="range" id="focal-length" min="50" max="200" value="100">
+    </div>
+
+    <!-- 按钮容器 -->
+    <div class="button-container">
+        <button id="move-left">向左移动</button>
+        <button id="move-right">向右移动</button>
+    </div>
+
+    <!-- 提示区域 -->
+    <div class="hint" id="hint"></div>
+
+    <script>
+        const object = document.getElementById('object');
+        const image = document.getElementById('image');
+        const objectArrow = document.getElementById('object-arrow');
+        const imageArrow = document.getElementById('image-arrow');
+        const focalLengthInput = document.getElementById('focal-length');
+        const focalLengthValue = document.getElementById('focal-length-value');
+        const hint = document.getElementById('hint');
+        const moveLeftButton = document.getElementById('move-left');
+        const moveRightButton = document.getElementById('move-right');
+        const containerWidth = 800;
+        let focalLength = 100; // 初始焦距
+        const lensCenter = containerWidth / 2;
+        let objectPosition = 100; // 物体初始位置（10%）
+        let moveInterval = null; // 用于持续移动的定时器
+
+        // 更新焦距
+        focalLengthInput.addEventListener('input', (e) => {
+            focalLength = parseInt(e.target.value);
+            focalLengthValue.textContent = focalLength;
+            updateFocusPoints(); // 更新焦点和 2F 点位置
+            updateImagePosition(); // 更新像的位置
+        });
+
+        // 更新焦点和 2F 点位置
+        function updateFocusPoints() {
+            const focusLeft = document.querySelector('.focus-left');
+            const focusRight = document.querySelector('.focus-right');
+            const point2fLeft = document.querySelector('.point-2f-left');
+            const point2fRight = document.querySelector('.point-2f-right');
+
+            const focusPosition = (focalLength / containerWidth) * 100;
+            const twoFPosition = (2 * focalLength / containerWidth) * 100;
+
+            focusLeft.style.left = `${50 - focusPosition}%`;
+            focusRight.style.left = `${50 + focusPosition}%`;
+            point2fLeft.style.left = `${50 - twoFPosition}%`;
+            point2fRight.style.left = `${50 + twoFPosition}%`;
+
+            // 更新焦点和 2F 点标注
+            document.querySelector('.label-focus-left').style.left = `${50 - focusPosition}%`;
+            document.querySelector('.label-focus-right').style.left = `${50 + focusPosition}%`;
+            document.querySelector('.label-2f-left').style.left = `${50 - twoFPosition}%`;
+            document.querySelector('.label-2f-right').style.left = `${50 + twoFPosition}%`;
+        }
+
+        // 更新物体位置
+        function updateObjectPosition(newPosition) {
+            objectPosition = newPosition;
+            object.style.left = `${objectPosition}px`;
+            objectArrow.style.left = `${objectPosition}px`;
+            document.getElementById('object-label').style.left = `${objectPosition}px`;
+            updateImagePosition(); // 更新像的位置
+        }
+
+        // 更新像的位置和提示信息
+        function updateImagePosition() {
+            const objectLeft = objectPosition;
+            const u = lensCenter - objectLeft; // 物距
+            const v = focalLength * u / (u - focalLength); // 像距
+            const isRealImage = u > focalLength; // 是否为实像
+
+            // 更新提示信息
+            let hintText = '';
+            if (u > 2 * focalLength) {
+                hintText = `u > 2f, v < 2f，倒立缩小的实像`;
+            } else if (u === 2 * focalLength) {
+                hintText = `u = 2f, v = 2f，倒立等大的实像`;
+            } else if (u > focalLength && u < 2 * focalLength) {
+                hintText = `f < u < 2f, v > 2f，倒立放大的实像`;
+            } else if (u === focalLength) {
+                hintText = `u = f，像在无穷远处`;
+            } else if (u < focalLength && u > 0) {
+                hintText = `u < f，正立放大的虚像`;
+            }
+            hint.textContent = hintText;
+
+            // 更新像的位置
+            if (Math.abs(v) < 1000) { // 排除无穷远
+                const imagePosition = isRealImage ? lensCenter + v : lensCenter - Math.abs(v);
+                const imageHeight = 50 * Math.abs(v / u);
+
+                image.style.left = `${imagePosition}px`;
+                image.style.height = `${imageHeight}px`;
+                image.className = `line image ${isRealImage ? 'real' : 'virtual'}`; // 切换实像/虚像样式
+
+                // 更新箭头位置
+                if (isRealImage) {
+                    // 实像箭头向下，位于像的底端
+                    imageArrow.className = 'arrow real-arrow';
+                    imageArrow.style.top = `${50 + imageHeight / 3}%`; // 位于像的底端
+                } else {
+                    // 虚像箭头向上，位于像的顶端
+                    imageArrow.className = 'arrow virtual-arrow';
+                    imageArrow.style.top = `${50 - imageHeight / 3}%`; //位于像的顶端
+                }
+
+                imageArrow.style.left = `${imagePosition}px`;
+                imageArrow.style.display = 'block';
+            } else {
+                image.style.height = '0'; // 隐藏像
+                imageArrow.style.display = 'none'; // 隐藏箭头
+            }
+        }
+
+        // 开始持续移动
+        function startMove(direction) {
+            if (moveInterval) return; // 防止重复启动
+            moveInterval = setInterval(() => {
+                if (direction === 'left') {
+                    objectPosition = Math.max(0, objectPosition - 0.5); // 每次向左移动 0.5px
+                } else if (direction === 'right') {
+                    objectPosition = Math.min(containerWidth, objectPosition + 0.5); // 每次向右移动 0.5px
+                }
+                updateObjectPosition(objectPosition);
+            }, 20); // 每 5ms 移动一次
+        }
+
+        // 停止持续移动
+        function stopMove() {
+            clearInterval(moveInterval);
+            moveInterval = null;
+        }
+
+        // 按钮事件监听
+        moveLeftButton.addEventListener('mousedown', () => startMove('left'));
+        moveRightButton.addEventListener('mousedown', () => startMove('right'));
+        moveLeftButton.addEventListener('mouseup', stopMove);
+        moveRightButton.addEventListener('mouseup', stopMove);
+        moveLeftButton.addEventListener('mouseleave', stopMove);
+        moveRightButton.addEventListener('mouseleave', stopMove);
+    </script>
+</body>
+</html>
