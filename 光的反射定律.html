@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光的反射规律演示实验</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+        }
+
+        canvas {
+            border: 1px solid #000;
+            background-color: #fff;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        label {
+            font-size: 18px;
+        }
+
+        input[type="range"] {
+            width: 150px;
+        }
+
+        .angle-display {
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .buttons button {
+            font-size: 16px;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .explanation {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 滑动条、按钮和角度显示 -->
+        <div class="controls">
+            <h1>光的反射规律演示实验</h1>
+            <label for="angle">入射角：</label>
+            <input type="range" id="angle" min="0" max="90" value="30">
+            <span id="angleValue">30°</span>
+
+            <!-- 按钮 -->
+            <div class="buttons">
+                <button onclick="showExplanation('两角相等：反射角等于入射角。')">两角相等</button>
+                <button onclick="showExplanation('分居两侧：反射光线和入射光线分居法线两侧。')">分居两侧</button>
+                <button onclick="showExplanation('三线共面：反射光线、入射光线和法线在同一平面。')">三线共面</button>
+            </div>
+
+            <!-- 解释 -->
+            <div class="explanation" id="explanation"></div>
+        </div>
+
+        <!-- 画布 -->
+        <div>
+            <canvas id="lightCanvas" width="600" height="400"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('lightCanvas');
+        const ctx = canvas.getContext('2d');
+        const angleInput = document.getElementById('angle');
+        const angleValue = document.getElementById('angleValue');
+        const explanation = document.getElementById('explanation');
+
+        // 初始化入射角
+        let angle = parseInt(angleInput.value);
+
+        // 监听滑动条变化
+        angleInput.addEventListener('input', () => {
+            angle = parseInt(angleInput.value);
+            angleValue.textContent = `${angle}°`;
+            drawLight(angle); // 实时更新画布
+        });
+
+        // 显示解释
+        function showExplanation(text) {
+            explanation.textContent = text;
+        }
+
+        // 绘制箭头
+        function drawArrow(x1, y1, x2, y2, color) {
+            // 计算线的中点
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            // 画线
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = color;
+            ctx.stroke();
+
+            // 画箭头
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const arrowSize = 10;
+            ctx.beginPath();
+            ctx.moveTo(midX, midY);
+            ctx.lineTo(
+                midX - arrowSize * Math.cos(angle - Math.PI / 6),
+                midY - arrowSize * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.lineTo(
+                midX - arrowSize * Math.cos(angle + Math.PI / 6),
+                midY - arrowSize * Math.sin(angle + Math.PI / 6)
+            );
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        // 绘制弧线
+        function drawArc(x, y, radius, startAngle, endAngle, color) {
+            ctx.beginPath();
+            ctx.arc(x, y, radius, startAngle, endAngle);
+            ctx.strokeStyle = color;
+            ctx.stroke();
+        }
+
+        function drawLight(angle) {
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 画法线（虚线）
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.strokeStyle = '#000';
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 画反射面
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.strokeStyle = '#000';
+            ctx.stroke();
+
+            // 计算入射光线和反射光线的角度
+            const radians = (angle * Math.PI) / 180;
+            const reflectionRadians = -radians;
+
+            // 入射光线的起点和终点
+            const incidentStartX = canvas.width / 2 + 200 * Math.sin(radians);
+            const incidentStartY = canvas.height / 2 - 200 * Math.cos(radians);
+            const incidentEndX = canvas.width / 2;
+            const incidentEndY = canvas.height / 2;
+
+            // 反射光线的起点和终点
+            const reflectionStartX = canvas.width / 2;
+            const reflectionStartY = canvas.height / 2;
+            const reflectionEndX = canvas.width / 2 + 200 * Math.sin(reflectionRadians);
+            const reflectionEndY = canvas.height / 2 - 200 * Math.cos(reflectionRadians);
+
+            // 画入射光线和反射光线（带箭头）
+            drawArrow(incidentStartX, incidentStartY, incidentEndX, incidentEndY, '#f00');
+            drawArrow(reflectionStartX, reflectionStartY, reflectionEndX, reflectionEndY, '#00f');
+
+            // 绘制入射角弧线（α）
+            const arcRadius = 50;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // 入射角弧线（从法线向右绘制到入射光线）
+            const incidentAngleStart = -Math.PI / 2; // 法线方向
+            const incidentAngleEnd = -Math.PI / 2 + radians; // 入射光线方向
+            drawArc(centerX, centerY, arcRadius, incidentAngleStart, incidentAngleEnd, '#f00');
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#f00';
+            const alphaX = centerX + arcRadius * Math.cos((incidentAngleStart + incidentAngleEnd) / 2);
+            const alphaY = centerY + arcRadius * Math.sin((incidentAngleStart + incidentAngleEnd) / 2);
+            ctx.fillText('α', alphaX - 10, alphaY + 5);
+            ctx.fillText(`${angle}°`, alphaX - 15, alphaY + 25); // 标注入射角度数
+
+            // 反射角弧线（从反射光线向右绘制到法线）
+            const reflectionAngleStart = -Math.PI / 2 - radians; // 反射光线方向
+            const reflectionAngleEnd = -Math.PI / 2; // 法线方向
+            drawArc(centerX, centerY, arcRadius, reflectionAngleStart, reflectionAngleEnd, '#00f');
+            ctx.fillStyle = '#00f';
+            const betaX = centerX + arcRadius * Math.cos((reflectionAngleStart + reflectionAngleEnd) / 2);
+            const betaY = centerY + arcRadius * Math.sin((reflectionAngleStart + reflectionAngleEnd) / 2);
+            ctx.fillText('β', betaX - 10, betaY + 5);
+            ctx.fillText(`${angle}°`, betaX - 15, betaY + 25); // 标注反射角度数
+        }
+
+        // 初始化
+        drawLight(angle);
+    </script>
+</body>
+</html>

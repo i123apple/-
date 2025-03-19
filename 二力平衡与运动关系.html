@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二力平衡与运动状态演示</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #controls {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 20px;
+            margin-right: 40px;
+        }
+        #controls button {
+            margin: 5px;
+            padding: 8px 16px;
+            cursor: pointer;
+            width: 100px;
+        }
+        #controls label {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        #container {
+            position: relative;
+            width: 300px;
+            height: 400px;
+            border: 2px solid #000;
+            background-color: #fff;
+            overflow: hidden;
+        }
+        #motor {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 50px;
+            background-color: #ccc;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            color: #000;
+        }
+        #rope {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            width: 2px;
+            height: 300px;
+            background-color: #000;
+        }
+        #weight {
+            position: absolute;
+            top: 360px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background-color: #555;
+            border-radius: 50%;
+        }
+        #center-dot {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background-color: #000;
+            border-radius: 50%;
+        }
+        .force-diagram {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        /* 拉力F样式 */
+        .force-f {
+            position: absolute;
+            left: 50%;
+            bottom: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            background: red;
+        }
+        /* 重力G样式 */
+        .force-g {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            background: blue;
+        }
+        .arrow-up {
+            position: absolute;
+            top: -10px;
+            left: -4px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 10px solid red;
+        }
+        .arrow-down {
+            position: absolute;
+            bottom: -10px;
+            left: -4px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 10px solid blue;
+        }
+        .force-label {
+            position: absolute;
+            font-size: 12px;
+            white-space: nowrap;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <button onclick="moveUp()">↑ 向上</button>
+        <button onclick="moveDown()">↓ 向下</button>
+        <button onclick="stop()">■ 停止</button>
+        <label for="speed">运动速度: <span id="speed-value">1.0</span> m/s</label>
+        <input type="range" id="speed" min="1" max="20" value="10">
+        <label for="gravity">重物重力 (G): <span id="gravity-value">10</span> N</label>
+        <input type="range" id="gravity" min="5" max="30" value="10">
+    </div>
+
+    <div id="container">
+        <div id="motor">电动机</div>
+        <div id="rope"></div>
+        <div id="weight">
+            <div id="center-dot"></div>
+            <div class="force-diagram">
+                <div class="force-f" id="force-f-line">
+                    <div class="arrow-up"></div>
+                    <div class="force-label" style="top: -30px" id="f-label">F = 10N</div>
+                </div>
+                <div class="force-g" id="force-g-line">
+                    <div class="arrow-down"></div>
+                    <div class="force-label" style="bottom: -30px" id="g-label">G = 10N</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let weight = document.getElementById('weight');
+        let rope = document.getElementById('rope');
+        let speed = 1.0;
+        let gravity = 10;
+        let isMoving = false;
+        let direction = 0;
+
+        // 速度控制
+        const speedSlider = document.getElementById('speed');
+        const speedValue = document.getElementById('speed-value');
+        speedSlider.addEventListener('input', (e) => {
+            speed = parseFloat((e.target.value / 10).toFixed(1));
+            speedValue.textContent = speed;
+        });
+
+        // 重力控制
+        const gravitySlider = document.getElementById('gravity');
+        const gravityValue = document.getElementById('gravity-value');
+        const forceFLine = document.getElementById('force-f-line');
+        const forceGLine = document.getElementById('force-g-line');
+        const fLabel = document.getElementById('f-label');
+        const gLabel = document.getElementById('g-label');
+
+        gravitySlider.addEventListener('input', (e) => {
+            gravity = parseInt(e.target.value);
+            gravityValue.textContent = gravity;
+            updateForceDiagram();
+        });
+
+        function updateForceDiagram() {
+            // 更新标签
+            fLabel.textContent = `F = ${gravity}N`;
+            gLabel.textContent = `G = ${gravity}N`;
+            
+            // 更新线段长度（比例系数可调整）
+            const lineHeight = gravity * 2;
+            forceFLine.style.height = `${lineHeight}px`;
+            forceGLine.style.height = `${lineHeight}px`;
+        }
+
+        function update() {
+            if(!isMoving) return;
+            let top = parseFloat(weight.style.top) || 360;
+            top += direction * speed;
+            top = Math.max(60, Math.min(360, top));
+            weight.style.top = top + 'px';
+            rope.style.height = (top - 60) + 'px';
+            requestAnimationFrame(update);
+        }
+
+        function moveUp() {
+            isMoving = true;
+            direction = -1;
+            update();
+        }
+
+        function moveDown() {
+            isMoving = true;
+            direction = 1;
+            update();
+        }
+
+        function stop() {
+            isMoving = false;
+        }
+
+        // 初始化
+        updateForceDiagram();
+    </script>
+</body>
+</html>
