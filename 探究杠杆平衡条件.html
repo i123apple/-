@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>杠杆平衡条件探究</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+        }
+        .controls {
+            width: 300px;
+            padding: 20px;
+            background-color: #f4f4f4;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+        .control-group span {
+            display: inline-block;
+            margin-top: 5px;
+            font-size: 14px;
+            color: #555;
+        }
+        .lever-container {
+            flex: 1;
+            position: relative;
+            height: 80vh;
+            background-color: #fff;
+        }
+        .lever {
+            width: 400px;
+            height: 10px;
+            background-color: #333;
+            position: absolute;
+            top: 50%;
+            left: calc(50% - 200px);
+            transform-origin: center center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+        .fulcrum {
+            width: 20px;
+            height: 60px;
+            background-color: #e74c3c;
+            position: absolute;
+            top: calc(50% - 30px);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            border-radius: 5px 5px 0 0;
+        }
+        .weight {
+            width: 30px;
+            height: 30px;
+            background-color: #3498db;
+            position: absolute;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        .rope {
+            position: absolute;
+            background-color: #8b4513;
+            width: 3px;
+            transform-origin: top center;
+            transition: all 0.3s ease;
+        }
+        .torque-display {
+            position: absolute;
+            top: 40%;
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        #left-torque {
+            left: 20%;
+            transform: translateX(-50%);
+        }
+        #right-torque {
+            right: 20%;
+            transform: translateX(50%);
+        }
+        #balance-status {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h2>控制面板</h2>
+        <div class="control-group">
+            <label for="force1">左侧重力 (N): <span id="force1-value">10</span></label>
+            <input type="range" id="force1" min="1" max="20" value="10" step="0.1">
+        </div>
+        <div class="control-group">
+            <label for="position1">左侧位置 (cm): <span id="position1-value">100</span></label>
+            <input type="range" id="position1" min="0" max="200" value="100" step="1">
+        </div>
+        <div class="control-group">
+            <label for="force2">右侧重力 (N): <span id="force2-value">10</span></label>
+            <input type="range" id="force2" min="1" max="20" value="10" step="0.1">
+        </div>
+        <div class="control-group">
+            <label for="position2">右侧位置 (cm): <span id="position2-value">100</span></label>
+            <input type="range" id="position2" min="0" max="200" value="100" step="1">
+        </div>
+        <button onclick="resetValues()">复位</button>
+    </div>
+    <div class="lever-container">
+        <div class="lever" id="lever"></div>
+        <div class="fulcrum"></div>
+        <div id="rope1" class="rope"></div>
+        <div id="rope2" class="rope"></div>
+        <div id="weight1" class="weight"></div>
+        <div id="weight2" class="weight"></div>
+        <div id="left-torque" class="torque-display">左侧力矩: 1000 N·cm</div>
+        <div id="right-torque" class="torque-display">右侧力矩: 1000 N·cm</div>
+        <p id="balance-status">杠杆平衡</p>
+    </div>
+
+    <script>
+        const lever = document.getElementById('lever');
+        const weight1 = document.getElementById('weight1');
+        const weight2 = document.getElementById('weight2');
+        const rope1 = document.getElementById('rope1');
+        const rope2 = document.getElementById('rope2');
+        const force1Input = document.getElementById('force1');
+        const position1Input = document.getElementById('position1');
+        const force2Input = document.getElementById('force2');
+        const position2Input = document.getElementById('position2');
+        const force1Value = document.getElementById('force1-value');
+        const position1Value = document.getElementById('position1-value');
+        const force2Value = document.getElementById('force2-value');
+        const position2Value = document.getElementById('position2-value');
+        const leftTorqueDisplay = document.getElementById('left-torque');
+        const rightTorqueDisplay = document.getElementById('right-torque');
+        const balanceStatus = document.getElementById('balance-status');
+
+        const config = {
+            leverLength: 400,
+            fulcrumPosition: 200, // 支点位置（固定）
+            containerHeight: 0,
+            ropeLength: 100
+        };
+
+        function calculateHangingPoint(offset, angle, isLeft) {
+            const angleRad = angle * Math.PI / 180;
+            const xOffset = isLeft ? -offset : offset; // 左侧为负偏移，右侧为正偏移
+            const yOffset = xOffset * Math.tan(angleRad); // 根据角度计算垂直偏移
+            return {
+                x: config.fulcrumPosition + xOffset, // 以支点为基准计算水平位置
+                y: config.containerHeight / 2 + yOffset // 以支点为基准计算垂直位置
+            };
+        }
+
+        function updateSystem() {
+            const force1 = parseFloat(force1Input.value);
+            const position1 = parseFloat(position1Input.value);
+            const force2 = parseFloat(force2Input.value);
+            const position2 = parseFloat(position2Input.value);
+
+            // 更新显示值
+            force1Value.textContent = force1.toFixed(1);
+            position1Value.textContent = position1;
+            force2Value.textContent = force2.toFixed(1);
+            position2Value.textContent = position2;
+
+            // 计算力矩
+            const torque1 = force1 * position1;
+            const torque2 = force2 * position2;
+            leftTorqueDisplay.textContent = `左侧力矩: ${torque1.toFixed(1)} N·cm`;
+            rightTorqueDisplay.textContent = `右侧力矩: ${torque2.toFixed(1)} N·cm`;
+
+            // 计算倾斜角度
+            const netTorque = torque1 - torque2;
+            const maxTorque = Math.max(Math.abs(torque1), Math.abs(torque2)) || 1;
+            const angle = (netTorque / maxTorque) * 15;
+
+            // 更新杠杆旋转
+            lever.style.transform = `rotate(${angle}deg)`;
+
+            // 更新左侧系统
+            const leftPoint = calculateHangingPoint(position1, angle, true);
+            rope1.style.left = `${leftPoint.x + 265}px`;
+            rope1.style.top = `${leftPoint.y}px`;
+            rope1.style.height = `${config.ropeLength}px`;
+            rope1.style.transform = 'rotate(0deg)'; // 绳子保持垂直
+            weight1.style.left = `${leftPoint.x + 265 - 15}px`;
+            weight1.style.top = `${leftPoint.y + config.ropeLength}px`;
+
+            // 更新右侧系统
+            const rightPoint = calculateHangingPoint(position2, angle, false);
+            rope2.style.left = `${rightPoint.x + 265}px`;
+            rope2.style.top = `${rightPoint.y}px`;
+            rope2.style.height = `${config.ropeLength}px`;
+            rope2.style.transform = 'rotate(0deg)'; // 绳子保持垂直
+            weight2.style.left = `${rightPoint.x + 265 - 15}px`;
+            weight2.style.top = `${rightPoint.y + config.ropeLength}px`;
+
+            // 更新平衡状态
+            balanceStatus.textContent = Math.abs(torque1 - torque2) < 0.1 ? 
+                "杠杆平衡" : torque1 < torque2 ? "杠杆向左倾斜" : "杠杆向右倾斜";
+        }
+
+        function resetValues() {
+            force1Input.value = 10;
+            position1Input.value = 100;
+            force2Input.value = 10;
+            position2Input.value = 100;
+            updateSystem();
+        }
+
+        // 事件监听
+        [force1Input, position1Input, force2Input, position2Input].forEach(input => {
+            input.addEventListener('input', updateSystem);
+        });
+
+        // 初始化
+        window.addEventListener('load', () => {
+            config.containerHeight = document.querySelector('.lever-container').offsetHeight;
+            updateSystem();
+        });
+    </script>
+</body>
+</html>
