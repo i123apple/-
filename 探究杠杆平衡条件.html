@@ -195,7 +195,7 @@
             rightTorqueDisplay.textContent = `右侧力矩: ${torque2.toFixed(1)} N·cm`;
 
             // 计算倾斜角度
-            const netTorque = torque1 - torque2;
+            const netTorque = - torque1 + torque2;
             const maxTorque = Math.max(Math.abs(torque1), Math.abs(torque2)) || 1;
             const angle = (netTorque / maxTorque) * 15;
 
@@ -222,7 +222,7 @@
 
             // 更新平衡状态
             balanceStatus.textContent = Math.abs(torque1 - torque2) < 0.1 ? 
-                "杠杆平衡" : torque1 < torque2 ? "杠杆向左倾斜" : "杠杆向右倾斜";
+                "杠杆平衡" : torque1 > torque2 ? "杠杆向左倾斜" : "杠杆向右倾斜";
         }
 
         function resetValues() {
