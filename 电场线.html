@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>双电荷电场模拟（带箭头）</title>
+    <style>
+        .container { display: flex; padding: 20px; }
+        .controls { 
+            width: 220px; 
+            margin-right: 20px;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .control-group { 
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        canvas { 
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+        select { 
+            margin-left: 5px;
+            padding: 3px;
+            border-radius: 4px;
+        }
+        label { font-family: Arial, sans-serif; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label>电荷1 (Q1): <span id="q1Value">1</span>q</label><br>
+                <input type="range" id="q1" min="1" max="10" step="0.1" value="1">
+                <select id="q1Polarity">
+                    <option value="+">正</option>
+                    <option value="-">负</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>电荷2 (Q2): <span id="q2Value">1</span>q</label><br>
+                <input type="range" id="q2" min="1" max="10" step="0.1" value="1">
+                <select id="q2Polarity">
+                    <option value="+">正</option>
+                    <option value="-">负</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>间距: <span id="distValue">100</span>px</label><br>
+                <input type="range" id="distance" min="50" max="300" value="100">
+            </div>
+        </div>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 600;
+        canvas.height = 400;
+
+        // 初始化参数
+        let Q1 = 1, Q2 = 1, distance = 100;
+        let polarity1 = 1, polarity2 = 1;
+        let charge1 = { x: canvas.width/2 - distance/2, y: canvas.height/2 };
+        let charge2 = { x: canvas.width/2 + distance/2, y: canvas.height/2 };
+        const k = 5000; // 电场强度系数
+        let fieldLines = [];
+
+        // 计算电场矢量
+        function calculateField(x, y) {
+            const dx1 = x - charge1.x;
+            const dy1 = y - charge1.y;
+            const r1 = Math.hypot(dx1, dy1);
+            
+            const dx2 = x - charge2.x;
+            const dy2 = y - charge2.y;
+            const r2 = Math.hypot(dx2, dy2);
+            
+            const Ex = k * Q1 * dx1 / (r1**3 + 1e-6) + k * Q2 * dx2 / (r2**3 + 1e-6);
+            const Ey = k * Q1 * dy1 / (r1**3 + 1e-6) + k * Q2 * dy2 / (r2**3 + 1e-6);
+            
+            return {x: Ex, y: Ey};
+        }
+
+        // 生成电场线路径（含箭头位置）
+        function generateFieldLines() {
+            fieldLines = [];
+            
+            // 生成电荷1的电场线
+            const linesQ1 = Math.round(Math.abs(Q1) * 8);
+            for(let i = 0; i < linesQ1; i++) {
+                const angle = (i / linesQ1) * Math.PI * 2;
+                const startX = charge1.x + Math.cos(angle) * 15;
+                const startY = charge1.y + Math.sin(angle) * 15;
+                fieldLines.push(traceLine(startX, startY, Q1 > 0));
+            }
+
+            // 生成电荷2的电场线
+            const linesQ2 = Math.round(Math.abs(Q2) * 8);
+            for(let i = 0; i < linesQ2; i++) {
+                const angle = (i / linesQ2) * Math.PI * 2;
+                const startX = charge2.x + Math.cos(angle) * 15;
+                const startY = charge2.y + Math.sin(angle) * 15;
+                fieldLines.push(traceLine(startX, startY, Q2 > 0));
+            }
+        }
+
+        // 追踪电场线路径
+        function traceLine(startX, startY, isPositive) {
+            const path = [];
+            let x = startX, y = startY;
+            const step = 2;
+            const direction = isPositive ? 1 : -1;
+            let lastArrowPos = {x: -100, y: -100};
+
+            for(let i = 0; i < 300; i++) { // 增加最大步数
+                const field = calculateField(x, y);
+                path.push({x, y, field});
+                
+                const mag = Math.hypot(field.x, field.y);
+                if(mag < 0.01) break;
+                
+                // 记录箭头位置（间隔20像素）
+                if(Math.hypot(x - lastArrowPos.x, y - lastArrowPos.y) > 80) {
+                    const angle = Math.atan2(Math.abs(direction) * field.y, Math.abs(direction) * field.x);
+                    path[path.length-1].arrow = angle;
+                    lastArrowPos = {x, y};
+                }
+
+                // 更新位置
+                x += direction * field.x / mag * step;
+                y += direction * field.y / mag * step;
+                
+                // 边界检查
+                if(x < 0 || x > canvas.width || y < 0 || y > canvas.height) break;
+                if(Math.hypot(x - charge1.x, y - charge1.y) < 15) break;
+                if(Math.hypot(x - charge2.x, y - charge2.y) < 15) break;
+            }
+            return path;
+        }
+
+        // 绘制箭头
+        function drawArrow(ctx, x, y, angle) {
+            const size = 10;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-size, -size/2);
+            ctx.lineTo(-size, size/2);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(0, 100, 255, 0.9)';
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // 主绘制函数
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制电荷
+            ctx.fillStyle = Q1 > 0 ? '#ff4444' : '#4444ff';
+            ctx.beginPath();
+            ctx.arc(charge1.x, charge1.y, 15, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.fillStyle = Q2 > 0 ? '#ff4444' : '#4444ff';
+            ctx.beginPath();
+            ctx.arc(charge2.x, charge2.y, 15, 0, Math.PI*2);
+            ctx.fill();
+
+            // 绘制电场线和箭头
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'rgba(0, 100, 255, 0.4)';
+            fieldLines.forEach(path => {
+                ctx.beginPath();
+                path.forEach((p, i) => {
+                    if(i === 0) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                });
+                ctx.stroke();
+                
+                // 绘制箭头
+                path.forEach(p => {
+                    if(p.arrow !== undefined) {
+                        drawArrow(ctx, p.x, p.y, p.arrow);
+                    }
+                });
+            });
+        }
+
+        // 更新模拟状态
+        function updateSimulation() {
+            // 更新电荷参数
+            Q1 = polarity1 * parseFloat(document.getElementById('q1').value);
+            Q2 = polarity2 * parseFloat(document.getElementById('q2').value);
+            
+            // 更新电荷位置
+            charge1.x = canvas.width/2 - distance/2;
+            charge2.x = canvas.width/2 + distance/2;
+            
+            generateFieldLines();
+            draw();
+        }
+
+        // 事件监听
+        document.getElementById('q1').addEventListener('input', e => {
+            document.getElementById('q1Value').textContent = e.target.value;
+            updateSimulation();
+        });
+
+        document.getElementById('q2').addEventListener('input', e => {
+            document.getElementById('q2Value').textContent = e.target.value;
+            updateSimulation();
+        });
+
+        document.getElementById('distance').addEventListener('input', e => {
+            distance = parseInt(e.target.value);
+            document.getElementById('distValue').textContent = distance;
+            updateSimulation();
+        });
+
+        document.getElementById('q1Polarity').addEventListener('change', e => {
+            polarity1 = e.target.value === '+' ? 1 : -1;
+            updateSimulation();
+        });
+
+        document.getElementById('q2Polarity').addEventListener('change', e => {
+            polarity2 = e.target.value === '+' ? 1 : -1;
+            updateSimulation();
+        });
+
+        // 初始化
+        updateSimulation();
+    </script>
+</body>
+</html>
